@@ -1,85 +1,78 @@
-set :application, 'app_name'
-set :deploy_user, 'deploy'
+lock '3.1.0'
+# for capistrano3 setup have used tutorial http://www.talkingquickly.co.uk/2014/01/deploying-rails-apps-to-a-vps-with-capistrano-v3/
+    # Gemfile.lock
+    # capistrano (3.1.0)
+    # capistrano-bundler (1.1.1)
+    # capistrano-rails (1.1.1)
+    # capistrano-rvm (0.1.1)
 
-# setup repo details
+set :application, 'art-electronics'
+set :user, ''
+
+#setup repo details
 set :scm, :git
-set :repo_url, 'git@github.com:username/repo.git'
+set :repo_url, 'git@github.com:taichiman/open-cook.git'
 
-# setup rvm.
-set :rbenv_type, :system
-set :rbenv_ruby, '2.0.0-p0'
-set :rbenv_prefix, "RBENV_ROOT=#{fetch(:rbenv_path)} RBENV_VERSION=#{fetch(:rbenv_ruby)} #{fetch(:rbenv_path)}/bin/rbenv exec"
-set :rbenv_map_bins, %w{rake gem bundle ruby rails}
+#setup rvm
+set :rvm_type, :system
+set :rvm_ruby_version, 'ruby-2.1.0@art-electronics'
 
-# how many old releases do we want to keep, not much
-set :keep_releases, 5
+set :pty, true
 
-# files we want symlinking to specific entries in shared
-set :linked_files, %w{config/database.yml config/application.yml}
-
-# dirs we want symlinking to shared
+#files and dirs we want symlinking to specific entries in shared
+set :linked_files, %w{config/database.yml}
 set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public/system}
 
-# what specs should be run before deployment is allowed to
-# continue, see lib/capistrano/tasks/run_tests.cap
+#what test should be run before deploy is allowed to continue
 set :tests, ["spec"]
 
-# which config files should be copied by deploy:setup_config
-# see documentation in lib/capistrano/tasks/setup_config.cap
-# for details of operations
-set(:config_files, %w(
-  nginx.conf
-  application.yml
+#which config files should be copy by deploy
+set :config_files, %w(
   database.example.yml
-  log_rotation
-  monit
+  nginx.conf
   unicorn.rb
   unicorn_init.sh
-))
+)
 
-# which config files should be made executable after copying
-# by deploy:setup_config
-set(:executable_config_files, %w(
-  unicorn_init.sh
-))
+#which config files should be make executable after copyng by deploy deploy:setup_config
+set :executable_config_files, %w(unicorn_init.sh)
 
+#files which need be symlinked
+# set(:symlinks, [
+#   {
+#     source: "nginx.conf",
+#     link: "/etc/nginx/sites-enabled/#{fetch(:full_app_name)}"
+#   },
+#   {
+#     source: "unicorn_init.sh",
+#     link: "/etc/init.d/unicorn_#{fetch(:full_app_name)}"
+#   }
+# ])
 
-# files which need to be symlinked to other parts of the
-# filesystem. For example nginx virtualhosts, log rotation
-# init scripts etc. The full_app_name variable isn't
-# available at this point so we use a custom template {{}}
-# tag and then add it at run time.
-set(:symlinks, [
-  {
-    source: "nginx.conf",
-    link: "/etc/nginx/sites-enabled/{{full_app_name}}"
-  },
-  {
-    source: "unicorn_init.sh",
-    link: "/etc/init.d/unicorn_{{full_app_name}}"
-  },
-  {
-    source: "log_rotation",
-   link: "/etc/logrotate.d/{{full_app_name}}"
-  },
-  {
-    source: "monit",
-    link: "/etc/monit/conf.d/{{full_app_name}}.conf"
-  }
-])
-
-# this:
-# http://www.capistranorb.com/documentation/getting-started/flow/
-# is worth reading for a quick overview of what tasks are called
-# and when for `cap stage deploy`
-
+#join to main workflow
 namespace :deploy do
   # make sure we're deploying what we think we're deploying
   before :deploy, "deploy:check_revision"
   # only allow a deploy with passing tests to deployed
-  before :deploy, "deploy:run_tests"
+  # before :deploy, "deploy:run_tests"
   # compile assets locally then rsync
-  after 'deploy:symlink:shared', 'deploy:compile_assets_locally'
+  # after 'deploy:symlink:shared', 'deploy:compile_assets_locally'
   after :finishing, 'deploy:cleanup'
+  after :publishing, 'deploy:unicorn:restart'
 end
 
+# set :default_env, { path: "/opt/ruby/bin:$PATH" }
+# set :default_env, { rails_env: 'production' }
+
+set :keep_releases, 5
+set :ssh_options, {:forward_agent => true}
+
+#gem capistrano-bundler
+set :bundle_flags, '--deployment'
+
+desc "run on server"
+task :run_on do
+  on roles :app do
+    execute "id"
+  end
+end
